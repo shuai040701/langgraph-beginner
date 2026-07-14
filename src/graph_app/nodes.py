@@ -34,7 +34,11 @@ def tool_node(state: AppState) -> dict:
         )
 
     messages = [*state["messages"], *tool_messages]
-    tool_result = "\n".join(tool_results)
+    current_result = "\n".join(tool_results)
+    previous_result = state.get("tool_result", "")
+    tool_result = "\n".join(
+        result for result in [previous_result, current_result] if result
+    )
     tool_name = ", ".join(tool_call["name"] for tool_call in state.get("tool_calls", []))
 
     return {

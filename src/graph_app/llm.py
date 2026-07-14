@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from typing import Any
 
 
@@ -70,8 +71,13 @@ def ask_with_tools(
         answer = fallback_answer(user_input, memory)
         return {"route": "final", "answer": answer, "messages": messages or []}
 
-    client = create_client()
     current_messages = messages if messages else build_messages(user_input, memory)
+
+    forced_tool = choose_forced_tool(user_input, current_messages)
+    if forced_tool:
+        return forced_tool
+
+    client = create_client()
 
     try:
         response = client.chat.completions.create(
@@ -116,6 +122,84 @@ def ask_with_tools(
     }
 
 
+def choose_forced_tool(
+    user_input: str,
+    messages: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    if has_tool_result(messages, "text_stats"):
+        return None
+
+    if not needs_text_stats(user_input):
+        return None
+
+    text = extract_quoted_text(user_input)
+    if not text:
+        return None
+
+    tool_call = {
+        "id": "forced_text_stats_1",
+        "name": "text_stats",
+        "args": {"text": text},
+    }
+    assistant_message = {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [
+            {
+                "id": tool_call["id"],
+                "type": "function",
+                "function": {
+                    "name": "text_stats",
+                    "arguments": json.dumps(tool_call["args"], ensure_ascii=False),
+                },
+            }
+        ],
+    }
+
+    return {
+        "route": "tool",
+        "messages": [*messages, assistant_message],
+        "tool_calls": [tool_call],
+        "tool_name": tool_call["name"],
+        "tool_args": tool_call["args"],
+        "tool_call_id": tool_call["id"],
+        "answer": "",
+    }
+
+
+def needs_text_stats(user_input: str) -> bool:
+    keywords = ["统计", "字符", "字数", "非空白", "词数", "行数"]
+    return any(keyword in user_input for keyword in keywords)
+
+
+def extract_quoted_text(user_input: str) -> str:
+    patterns = [
+        r'"([^"]+)"',
+        r"'([^']+)'",
+        r"“([^”]+)”",
+        r"「([^」]+)」",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, user_input)
+        if match:
+            return match.group(1)
+
+    return ""
+
+
+def has_tool_result(messages: list[dict[str, Any]], tool_name: str) -> bool:
+    for message in messages:
+        if message.get("role") != "assistant":
+            continue
+
+        for tool_call in message.get("tool_calls") or []:
+            function = tool_call.get("function") or {}
+            if function.get("name") == tool_name:
+                return True
+
+    return False
+
+
 def create_client():
     try:
         from openai import OpenAI
@@ -140,6 +224,8 @@ def build_messages(user_input: str, memory: list[str]) -> list[dict[str, Any]]:
                 "你是一个帮助用户学习 LangGraph 的中文助教。"
                 "如果用户的问题需要准确计算、文本统计或当前时间，必须调用对应工具。"
                 "如果一个问题需要多个步骤，可以连续调用工具，直到信息足够再回答。"
+                "尤其注意：涉及字符数、非空白字符数、词数或行数时，必须先使用 text_stats。"
+                "涉及基于工具结果的算术时，必须再使用 calculator，不要心算。"
                 "不要编造工具结果。回答要简洁、具体。"
             ),
         }
