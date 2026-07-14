@@ -13,7 +13,7 @@ def route_after_agent(state: AppState) -> Literal["calculator_node", "save_memor
     return "save_memory"
 
 
-def build_graph():
+def build_graph(checkpointer=None):
     builder = StateGraph(AppState)
 
     builder.add_node("agent_node", agent_node)
@@ -36,4 +36,4 @@ def build_graph():
     builder.add_edge("final_answer_node", "save_memory")
     builder.add_edge("save_memory", END)
 
-    return builder.compile()
+    return builder.compile(checkpointer=checkpointer)
