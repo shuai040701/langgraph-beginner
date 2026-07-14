@@ -144,6 +144,7 @@ def choose_forced_tool(
     assistant_message = {
         "role": "assistant",
         "content": None,
+        "reasoning_content": "",
         "tool_calls": [
             {
                 "id": tool_call["id"],
@@ -250,7 +251,7 @@ def message_to_dict(message: Any) -> dict[str, Any]:
     return {
         key: value
         for key, value in data.items()
-        if key in {"role", "content", "tool_calls"}
+        if key in {"role", "content", "reasoning_content", "tool_calls"}
     }
 
 
