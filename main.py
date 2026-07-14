@@ -29,7 +29,7 @@ def main():
         app = build_graph(checkpointer=checkpointer)
         thread_id = DEFAULT_THREAD_ID
 
-        print("LangGraph Beginner v6 - SQLite Checkpoint Memory")
+        print("LangGraph Beginner v7 - Multi Tool Agent")
         print(f"记忆数据库：{CHECKPOINT_DB}")
         print_status()
         print("输入 /reset 开启新会话；输入 /thread 名称 切换或恢复指定会话；输入 exit 结束。")
@@ -60,7 +60,7 @@ def main():
             result = app.invoke(state_input, config=config)
 
             if result.get("tool_result"):
-                print(f"工具 calculator：{result['tool_result']}")
+                print(f"工具 {result.get('tool_name', 'unknown')}：{result['tool_result']}")
             print(f"助手：{result['answer']}")
 
 

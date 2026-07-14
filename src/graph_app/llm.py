@@ -6,23 +6,59 @@ from typing import Any
 DEFAULT_DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash"
 
-CALCULATOR_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "calculator",
-        "description": "计算一个只包含数字、括号和 + - * / // % ** 运算符的数学表达式。",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "expression": {
-                    "type": "string",
-                    "description": "需要计算的数学表达式，例如：1 + 2 * (3 + 4)",
-                }
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "calculator",
+            "description": "计算只包含数字、括号和 + - * / // % ** 运算符的数学表达式。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "expression": {
+                        "type": "string",
+                        "description": "需要计算的数学表达式，例如：1 + 2 * (3 + 4)",
+                    }
+                },
+                "required": ["expression"],
             },
-            "required": ["expression"],
         },
     },
-}
+    {
+        "type": "function",
+        "function": {
+            "name": "text_stats",
+            "description": "统计文本的字符数、非空白字符数、按空白分隔的词数和行数。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": "需要统计的文本。",
+                    }
+                },
+                "required": ["text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "current_time",
+            "description": "获取指定 IANA 时区的当前时间。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "timezone": {
+                        "type": "string",
+                        "description": "IANA 时区名，例如 Asia/Shanghai 或 America/New_York。",
+                    }
+                },
+                "required": ["timezone"],
+            },
+        },
+    },
+]
 
 
 def ask_with_tools(user_input: str, memory: list[str]) -> dict[str, Any]:
@@ -37,7 +73,7 @@ def ask_with_tools(user_input: str, memory: list[str]) -> dict[str, Any]:
         response = client.chat.completions.create(
             model=get_model(),
             messages=messages,
-            tools=[CALCULATOR_TOOL],
+            tools=TOOLS,
             tool_choice="auto",
             stream=False,
         )
@@ -105,8 +141,8 @@ def build_messages(user_input: str, memory: list[str]) -> list[dict[str, Any]]:
             "role": "system",
             "content": (
                 "你是一个帮助用户学习 LangGraph 的中文助教。"
-                "如果用户的问题需要准确计算，必须调用 calculator 工具，不要心算。"
-                "回答要简洁、具体，并在合适时指出下一步练习。"
+                "如果用户的问题需要准确计算、文本统计或当前时间，必须调用对应工具。"
+                "不要编造工具结果。回答要简洁、具体。"
             ),
         }
     ]
@@ -151,5 +187,5 @@ def fallback_answer(user_input: str, memory: list[str]) -> str:
     return (
         f"本地回复：你说的是「{user_input}」。"
         f"我已经记住了前面 {turns} 轮对话。"
-        "配置 DEEPSEEK_API_KEY 后，这里会切换为 DeepSeek ReAct 工具调用模式。"
+        "配置 DEEPSEEK_API_KEY 后，这里会切换为 DeepSeek 多工具调用模式。"
     )

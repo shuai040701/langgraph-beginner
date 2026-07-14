@@ -1,20 +1,17 @@
 from graph_app.llm import ask_final_answer, ask_with_tools
 from graph_app.state import AppState
-from graph_app.tools import safe_calculate
+from graph_app.tools import run_tool
 
 
 def agent_node(state: AppState) -> dict:
     return ask_with_tools(state["user_input"], state["memory"])
 
 
-def calculator_node(state: AppState) -> dict:
-    expression = str(state["tool_args"].get("expression", "")).strip()
-
+def tool_node(state: AppState) -> dict:
     try:
-        result = safe_calculate(expression)
-        tool_result = str(result)
+        tool_result = run_tool(state["tool_name"], state["tool_args"])
     except Exception as exc:
-        tool_result = f"计算失败：{exc}"
+        tool_result = f"工具执行失败：{exc}"
 
     messages = [
         *state["messages"],

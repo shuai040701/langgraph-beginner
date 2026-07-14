@@ -1,5 +1,7 @@
 import ast
 import operator
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 
 _OPERATORS = {
@@ -15,9 +17,50 @@ _OPERATORS = {
 }
 
 
+def run_tool(name: str, args: dict) -> str:
+    if name == "calculator":
+        expression = str(args.get("expression", "")).strip()
+        return str(safe_calculate(expression))
+
+    if name == "text_stats":
+        text = str(args.get("text", ""))
+        return text_stats(text)
+
+    if name == "current_time":
+        timezone = str(args.get("timezone", "Asia/Shanghai")).strip() or "Asia/Shanghai"
+        return current_time(timezone)
+
+    return f"未知工具：{name}"
+
+
 def safe_calculate(expression: str) -> float | int:
     tree = ast.parse(expression, mode="eval")
     return _eval_node(tree.body)
+
+
+def text_stats(text: str) -> str:
+    chars = len(text)
+    non_space_chars = len("".join(text.split()))
+    words = len(text.split())
+    lines = text.count("\n") + 1 if text else 0
+
+    return (
+        f"字符数：{chars}；"
+        f"非空白字符数：{non_space_chars}；"
+        f"按空白分隔的词数：{words}；"
+        f"行数：{lines}"
+    )
+
+
+def current_time(timezone: str) -> str:
+    try:
+        tz = ZoneInfo(timezone)
+    except Exception:
+        tz = ZoneInfo("Asia/Shanghai")
+        timezone = "Asia/Shanghai"
+
+    now = datetime.now(tz)
+    return f"{timezone} 当前时间：{now:%Y-%m-%d %H:%M:%S}"
 
 
 def _eval_node(node: ast.AST) -> float | int:
