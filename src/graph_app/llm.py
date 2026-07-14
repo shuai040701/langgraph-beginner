@@ -61,62 +61,59 @@ TOOLS = [
 ]
 
 
-def ask_with_tools(user_input: str, memory: list[str]) -> dict[str, Any]:
+def ask_with_tools(
+    user_input: str,
+    memory: list[str],
+    messages: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     if not os.getenv("DEEPSEEK_API_KEY"):
         answer = fallback_answer(user_input, memory)
-        return {"route": "final", "answer": answer, "messages": []}
+        return {"route": "final", "answer": answer, "messages": messages or []}
 
     client = create_client()
-    messages = build_messages(user_input, memory)
+    current_messages = messages if messages else build_messages(user_input, memory)
 
     try:
         response = client.chat.completions.create(
             model=get_model(),
-            messages=messages,
+            messages=current_messages,
             tools=TOOLS,
             tool_choice="auto",
             stream=False,
         )
     except Exception as exc:
-        return {"route": "final", "answer": f"DeepSeek API 调用失败：{exc}", "messages": messages}
+        return {
+            "route": "final",
+            "answer": f"DeepSeek API 调用失败：{exc}",
+            "messages": current_messages,
+            "tool_calls": [],
+        }
 
     message = response.choices[0].message
-    tool_calls = message.tool_calls or []
+    next_messages = [*current_messages, message_to_dict(message)]
+    tool_calls = parse_tool_calls(message.tool_calls or [])
 
     if not tool_calls:
         return {
             "route": "final",
             "answer": message.content or "",
-            "messages": [*messages, message_to_dict(message)],
+            "messages": next_messages,
+            "tool_calls": [],
+            "tool_name": "",
+            "tool_args": {},
+            "tool_call_id": "",
         }
 
-    tool_call = tool_calls[0]
+    first_tool = tool_calls[0]
     return {
         "route": "tool",
-        "messages": [*messages, message_to_dict(message)],
-        "tool_name": tool_call.function.name,
-        "tool_args": parse_tool_args(tool_call.function.arguments),
-        "tool_call_id": tool_call.id,
+        "messages": next_messages,
+        "tool_calls": tool_calls,
+        "tool_name": first_tool["name"],
+        "tool_args": first_tool["args"],
+        "tool_call_id": first_tool["id"],
         "answer": "",
     }
-
-
-def ask_final_answer(messages: list[dict[str, Any]]) -> str:
-    if not os.getenv("DEEPSEEK_API_KEY"):
-        return "本地模式下不会进入工具总结节点。"
-
-    client = create_client()
-
-    try:
-        response = client.chat.completions.create(
-            model=get_model(),
-            messages=messages,
-            stream=False,
-        )
-    except Exception as exc:
-        return f"DeepSeek API 调用失败：{exc}"
-
-    return response.choices[0].message.content or ""
 
 
 def create_client():
@@ -142,6 +139,7 @@ def build_messages(user_input: str, memory: list[str]) -> list[dict[str, Any]]:
             "content": (
                 "你是一个帮助用户学习 LangGraph 的中文助教。"
                 "如果用户的问题需要准确计算、文本统计或当前时间，必须调用对应工具。"
+                "如果一个问题需要多个步骤，可以连续调用工具，直到信息足够再回答。"
                 "不要编造工具结果。回答要简洁、具体。"
             ),
         }
@@ -170,6 +168,21 @@ def message_to_dict(message: Any) -> dict[str, Any]:
     }
 
 
+def parse_tool_calls(raw_tool_calls: list[Any]) -> list[dict[str, Any]]:
+    calls: list[dict[str, Any]] = []
+
+    for raw_call in raw_tool_calls:
+        calls.append(
+            {
+                "id": raw_call.id,
+                "name": raw_call.function.name,
+                "args": parse_tool_args(raw_call.function.arguments),
+            }
+        )
+
+    return calls
+
+
 def parse_tool_args(raw_args: str) -> dict[str, Any]:
     try:
         args = json.loads(raw_args)
@@ -187,5 +200,5 @@ def fallback_answer(user_input: str, memory: list[str]) -> str:
     return (
         f"本地回复：你说的是「{user_input}」。"
         f"我已经记住了前面 {turns} 轮对话。"
-        "配置 DEEPSEEK_API_KEY 后，这里会切换为 DeepSeek 多工具调用模式。"
+        "配置 DEEPSEEK_API_KEY 后，这里会切换为 DeepSeek 多步工具循环模式。"
     )

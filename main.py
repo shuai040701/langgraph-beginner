@@ -29,7 +29,7 @@ def main():
         app = build_graph(checkpointer=checkpointer)
         thread_id = DEFAULT_THREAD_ID
 
-        print("LangGraph Beginner v7 - Multi Tool Agent")
+        print("LangGraph Beginner v8 - Multi Step Tool Loop")
         print(f"记忆数据库：{CHECKPOINT_DB}")
         print_status()
         print("输入 /reset 开启新会话；输入 /thread 名称 切换或恢复指定会话；输入 exit 结束。")
@@ -55,12 +55,15 @@ def main():
                     print("用法：/thread 你的会话名")
                 continue
 
-            config = {"configurable": {"thread_id": thread_id}}
+            config = {
+                "configurable": {"thread_id": thread_id},
+                "recursion_limit": 12,
+            }
             state_input = build_state_input(app, config, user_input)
             result = app.invoke(state_input, config=config)
 
             if result.get("tool_result"):
-                print(f"工具 {result.get('tool_name', 'unknown')}：{result['tool_result']}")
+                print(f"工具结果：\n{result['tool_result']}")
             print(f"助手：{result['answer']}")
 
 
@@ -80,6 +83,7 @@ def build_state_input(app, config: dict, user_input: str) -> dict:
         "user_input": user_input,
         "route": "",
         "messages": [],
+        "tool_calls": [],
         "tool_name": "",
         "tool_args": {},
         "tool_call_id": "",
