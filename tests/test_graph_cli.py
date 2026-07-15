@@ -3,7 +3,7 @@ import tempfile
 
 from graph_app.graph import build_graph
 from langgraph.checkpoint.sqlite import SqliteSaver
-from main import build_state_input, parse_history_limit, run_graph
+from main import build_state_input, parse_history_limit, print_tool_detail, print_tools, run_graph
 
 
 BASE_STATE = {
@@ -24,6 +24,23 @@ def test_parse_history_limit():
     assert parse_history_limit("/history 3") == 3
     assert parse_history_limit("/history nope") == 5
     assert parse_history_limit("/history 99") == 20
+
+
+def test_print_tools_lists_registered_tools(capsys):
+    print_tools()
+
+    output = capsys.readouterr().out
+    assert "calculator" in output
+    assert "text_stats" in output
+    assert "current_time" in output
+
+
+def test_print_tool_detail_shows_parameters(capsys):
+    print_tool_detail("calculator")
+
+    output = capsys.readouterr().out
+    assert "calculator" in output
+    assert "expression" in output
 
 
 def test_graph_local_fallback_persists_checkpoint(monkeypatch):

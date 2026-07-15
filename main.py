@@ -13,6 +13,7 @@ except ImportError:
 
 from graph_app.graph import build_graph
 from graph_app.llm import STREAM_TOKENS_ENV
+from graph_app.tools import TOOL_REGISTRY
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 
@@ -34,7 +35,7 @@ def main():
         trace_enabled = True
         token_stream_enabled = True
 
-        print("LangGraph Beginner v12 - Graph Export")
+        print("LangGraph Beginner v16 - Tool Catalog")
         print(f"记忆数据库：{CHECKPOINT_DB}")
         print_status()
         print_help()
@@ -53,6 +54,14 @@ def main():
 
             if user_input == "/help":
                 print_help()
+                continue
+
+            if user_input == "/tools":
+                print_tools()
+                continue
+
+            if user_input.startswith("/tool "):
+                print_tool_detail(user_input.removeprefix("/tool ").strip())
                 continue
 
             if user_input == "/graph":
@@ -107,6 +116,8 @@ def main():
 def print_help():
     print("命令：")
     print("  /help             显示命令")
+    print("  /tools            查看所有已注册工具")
+    print("  /tool 名称        查看某个工具的描述和参数")
     print("  /graph            导出 Mermaid 图到 docs/langgraph.mmd")
     print("  /state            查看当前 thread 的状态摘要")
     print("  /memory           查看当前 thread 的对话记忆")
@@ -116,6 +127,32 @@ def print_help():
     print("  /trace on|off     切换 LangGraph 节点事件流")
     print("  /tokens on|off    切换最终回答 token 流式输出")
     print("  exit              结束程序")
+
+
+def print_tools():
+    print("已注册工具：")
+    for name, tool in TOOL_REGISTRY.items():
+        print(f"  {name}: {tool.description}")
+
+
+def print_tool_detail(name: str):
+    tool = TOOL_REGISTRY.get(name)
+    if not tool:
+        print(f"未找到工具：{name}")
+        print("可用工具：" + ", ".join(TOOL_REGISTRY))
+        return
+
+    print(f"工具：{tool.name}")
+    print(f"描述：{tool.description}")
+    print("参数：")
+
+    properties = tool.parameters.get("properties", {})
+    required = set(tool.parameters.get("required", []))
+    for param_name, param_schema in properties.items():
+        marker = "必填" if param_name in required else "可选"
+        description = param_schema.get("description", "")
+        param_type = param_schema.get("type", "unknown")
+        print(f"  {param_name} ({param_type}, {marker}): {description}")
 
 
 def export_graph(app):
