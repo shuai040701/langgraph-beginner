@@ -2,6 +2,7 @@ import os
 import sys
 import uuid
 from pathlib import Path
+from typing import Any
 
 sys.path.append(str(Path(__file__).parent / "src"))
 
@@ -28,11 +29,12 @@ def main():
     with SqliteSaver.from_conn_string(str(CHECKPOINT_DB)) as checkpointer:
         app = build_graph(checkpointer=checkpointer)
         thread_id = DEFAULT_THREAD_ID
+        trace_enabled = True
 
-        print("LangGraph Beginner v8 - Multi Step Tool Loop")
+        print("LangGraph Beginner v9 - Streaming Graph Events")
         print(f"记忆数据库：{CHECKPOINT_DB}")
         print_status()
-        print("输入 /reset 开启新会话；输入 /thread 名称 切换或恢复指定会话；输入 exit 结束。")
+        print("输入 /reset 开启新会话；输入 /thread 名称 切换或恢复指定会话；输入 /trace on|off 切换事件流；输入 exit 结束。")
 
         while True:
             user_input = input(f"\n你[{thread_id}]：").strip()
@@ -55,16 +57,61 @@ def main():
                     print("用法：/thread 你的会话名")
                 continue
 
+            if user_input.startswith("/trace "):
+                trace_enabled = user_input.removeprefix("/trace ").strip().lower() != "off"
+                print(f"事件流：{'开启' if trace_enabled else '关闭'}")
+                continue
+
             config = {
                 "configurable": {"thread_id": thread_id},
                 "recursion_limit": 12,
             }
             state_input = build_state_input(app, config, user_input)
-            result = app.invoke(state_input, config=config)
+            result = run_graph(app, state_input, config, trace_enabled)
 
             if result.get("tool_result"):
                 print(f"工具结果：\n{result['tool_result']}")
             print(f"助手：{result['answer']}")
+
+
+def run_graph(app, state_input: dict, config: dict, trace_enabled: bool) -> dict:
+    if trace_enabled:
+        print("事件流：")
+
+    for update in app.stream(state_input, config=config, stream_mode="updates"):
+        if trace_enabled:
+            print_graph_update(update)
+
+    snapshot = app.get_state(config)
+    return snapshot.values
+
+
+def print_graph_update(update: dict[str, Any]):
+    for node_name, payload in update.items():
+        if node_name == "agent_node":
+            print_agent_update(payload)
+        elif node_name == "tool_node":
+            print_tool_update(payload)
+        elif node_name == "save_memory":
+            print("  save_memory -> 已保存本轮对话")
+        else:
+            print(f"  {node_name} -> {payload}")
+
+
+def print_agent_update(payload: dict[str, Any]):
+    if payload.get("route") == "tool":
+        tool_names = [tool_call["name"] for tool_call in payload.get("tool_calls", [])]
+        print(f"  agent_node -> 请求工具：{', '.join(tool_names)}")
+        return
+
+    answer = payload.get("answer", "")
+    preview = answer.replace("\n", " ")[:80]
+    print(f"  agent_node -> 生成最终回答：{preview}")
+
+
+def print_tool_update(payload: dict[str, Any]):
+    tool_name = payload.get("tool_name", "unknown")
+    print(f"  tool_node -> 已执行工具：{tool_name}")
 
 
 def print_status():
