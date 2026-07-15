@@ -15,3 +15,7 @@ python -m pytest
 ```
 
 The tests do not call the DeepSeek API. They cover local tools, helper logic, streaming parsing, checkpoint behavior, and CLI helper functions.
+
+## CI
+
+GitHub Actions runs `python -m pytest` on every push and pull request.
