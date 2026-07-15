@@ -6,6 +6,7 @@ from typing import Any
 
 DEFAULT_DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash"
+STREAM_TOKENS_ENV = "LANGGRAPH_STREAM_TOKENS"
 
 TOOLS = [
     {
@@ -80,34 +81,39 @@ def ask_with_tools(
     client = create_client()
 
     try:
-        response = client.chat.completions.create(
-            model=get_model(),
-            messages=current_messages,
-            tools=TOOLS,
-            tool_choice="auto",
-            stream=False,
-        )
+        if should_stream_tokens():
+            message = stream_chat_completion(client, current_messages)
+        else:
+            response = client.chat.completions.create(
+                model=get_model(),
+                messages=current_messages,
+                tools=TOOLS,
+                tool_choice="auto",
+                stream=False,
+            )
+            message = message_to_dict(response.choices[0].message)
     except Exception as exc:
         return {
             "route": "final",
             "answer": f"DeepSeek API 调用失败：{exc}",
             "messages": current_messages,
             "tool_calls": [],
+            "answer_streamed": False,
         }
 
-    message = response.choices[0].message
-    next_messages = [*current_messages, message_to_dict(message)]
-    tool_calls = parse_tool_calls(message.tool_calls or [])
+    next_messages = [*current_messages, message]
+    tool_calls = parse_message_tool_calls(message.get("tool_calls") or [])
 
     if not tool_calls:
         return {
             "route": "final",
-            "answer": message.content or "",
+            "answer": message.get("content") or "",
             "messages": next_messages,
             "tool_calls": [],
             "tool_name": "",
             "tool_args": {},
             "tool_call_id": "",
+            "answer_streamed": bool(message.get("_streamed_content")),
         }
 
     first_tool = tool_calls[0]
@@ -119,7 +125,89 @@ def ask_with_tools(
         "tool_args": first_tool["args"],
         "tool_call_id": first_tool["id"],
         "answer": "",
+        "answer_streamed": False,
     }
+
+
+def stream_chat_completion(client: Any, messages: list[dict[str, Any]]) -> dict[str, Any]:
+    stream = client.chat.completions.create(
+        model=get_model(),
+        messages=messages,
+        tools=TOOLS,
+        tool_choice="auto",
+        stream=True,
+    )
+
+    content_parts: list[str] = []
+    reasoning_parts: list[str] = []
+    tool_call_parts: dict[int, dict[str, Any]] = {}
+    printed_content = False
+
+    for chunk in stream:
+        if not chunk.choices:
+            continue
+
+        delta = chunk.choices[0].delta
+        content_delta = getattr(delta, "content", None)
+        reasoning_delta = getattr(delta, "reasoning_content", None)
+        tool_call_deltas = getattr(delta, "tool_calls", None) or []
+
+        if reasoning_delta:
+            reasoning_parts.append(reasoning_delta)
+
+        if content_delta:
+            if not printed_content:
+                print("助手流式：", end="", flush=True)
+                printed_content = True
+            print(content_delta, end="", flush=True)
+            content_parts.append(content_delta)
+
+        for tool_call_delta in tool_call_deltas:
+            index = tool_call_delta.index
+            current = tool_call_parts.setdefault(
+                index,
+                {
+                    "id": "",
+                    "type": "function",
+                    "function": {"name": "", "arguments": ""},
+                },
+            )
+
+            if getattr(tool_call_delta, "id", None):
+                current["id"] = tool_call_delta.id
+
+            function_delta = getattr(tool_call_delta, "function", None)
+            if function_delta:
+                if getattr(function_delta, "name", None):
+                    current["function"]["name"] += function_delta.name
+                if getattr(function_delta, "arguments", None):
+                    current["function"]["arguments"] += function_delta.arguments
+
+    if printed_content:
+        print()
+
+    message: dict[str, Any] = {
+        "role": "assistant",
+        "content": "".join(content_parts) or None,
+    }
+
+    if reasoning_parts:
+        message["reasoning_content"] = "".join(reasoning_parts)
+
+    if tool_call_parts:
+        message["tool_calls"] = [
+            tool_call_parts[index]
+            for index in sorted(tool_call_parts)
+        ]
+
+    if printed_content:
+        message["_streamed_content"] = True
+
+    return message
+
+
+def should_stream_tokens() -> bool:
+    return os.getenv(STREAM_TOKENS_ENV) == "1"
 
 
 def choose_forced_tool(
@@ -165,6 +253,7 @@ def choose_forced_tool(
         "tool_args": tool_call["args"],
         "tool_call_id": tool_call["id"],
         "answer": "",
+        "answer_streamed": False,
     }
 
 
@@ -255,17 +344,27 @@ def message_to_dict(message: Any) -> dict[str, Any]:
     }
 
 
-def parse_tool_calls(raw_tool_calls: list[Any]) -> list[dict[str, Any]]:
+def parse_message_tool_calls(raw_tool_calls: list[Any]) -> list[dict[str, Any]]:
     calls: list[dict[str, Any]] = []
 
     for raw_call in raw_tool_calls:
-        calls.append(
-            {
-                "id": raw_call.id,
-                "name": raw_call.function.name,
-                "args": parse_tool_args(raw_call.function.arguments),
-            }
-        )
+        if isinstance(raw_call, dict):
+            function = raw_call.get("function") or {}
+            calls.append(
+                {
+                    "id": raw_call.get("id", ""),
+                    "name": function.get("name", ""),
+                    "args": parse_tool_args(function.get("arguments", "{}")),
+                }
+            )
+        else:
+            calls.append(
+                {
+                    "id": raw_call.id,
+                    "name": raw_call.function.name,
+                    "args": parse_tool_args(raw_call.function.arguments),
+                }
+            )
 
     return calls
 

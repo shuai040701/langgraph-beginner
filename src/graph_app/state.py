@@ -12,3 +12,4 @@ class AppState(TypedDict):
     tool_call_id: str
     tool_result: str
     answer: str
+    answer_streamed: bool
