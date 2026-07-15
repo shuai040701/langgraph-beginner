@@ -166,6 +166,10 @@ def print_config(
     print(f"  trace_enabled: {trace_enabled}")
     print(f"  token_stream_enabled: {token_stream_enabled}")
     print(f"  deepseek_api_key_configured: {bool(os.getenv('DEEPSEEK_API_KEY'))}")
+    print(f"  langsmith_tracing: {app_config.langsmith_tracing}")
+    print(f"  langsmith_project: {app_config.langsmith_project}")
+    print(f"  langsmith_endpoint: {app_config.langsmith_endpoint or '(default)'}")
+    print(f"  langsmith_api_key_configured: {bool(os.getenv('LANGSMITH_API_KEY'))}")
 
 
 def print_tools():
@@ -268,6 +272,11 @@ def print_status(app_config: AppConfig):
         print(f"已检测到 DEEPSEEK_API_KEY，将使用 DeepSeek 模型：{app_config.deepseek_model}")
     else:
         print("未检测到 DEEPSEEK_API_KEY，将使用本地回退回复。")
+
+    if app_config.langsmith_tracing and os.getenv("LANGSMITH_API_KEY"):
+        print(f"已开启 LangSmith tracing，项目：{app_config.langsmith_project}")
+    elif app_config.langsmith_tracing:
+        print("已请求开启 LangSmith tracing，但缺少 LANGSMITH_API_KEY。")
 
 
 def print_state(app, config: dict):

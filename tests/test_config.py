@@ -10,6 +10,9 @@ def test_app_config_reads_environment(monkeypatch, tmp_path):
     monkeypatch.setenv("GRAPH_MERMAID_FILE", "tmp/graph.mmd")
     monkeypatch.setenv("TRACE_DEFAULT", "false")
     monkeypatch.setenv("TOKEN_STREAM_DEFAULT", "yes")
+    monkeypatch.setenv("LANGSMITH_TRACING", "true")
+    monkeypatch.setenv("LANGSMITH_PROJECT", "custom-langsmith-project")
+    monkeypatch.setenv("LANGSMITH_ENDPOINT", "https://example.langsmith.test")
 
     config = AppConfig.from_env(tmp_path)
 
@@ -19,6 +22,9 @@ def test_app_config_reads_environment(monkeypatch, tmp_path):
     assert config.graph_mermaid_file == tmp_path / "tmp/graph.mmd"
     assert config.trace_default is False
     assert config.token_stream_default is True
+    assert config.langsmith_tracing is True
+    assert config.langsmith_project == "custom-langsmith-project"
+    assert config.langsmith_endpoint == "https://example.langsmith.test"
 
 
 def test_app_config_accepts_absolute_paths(monkeypatch, tmp_path):

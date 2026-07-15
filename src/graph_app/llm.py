@@ -3,7 +3,12 @@ import os
 import re
 from typing import Any
 
-from graph_app.config import DEFAULT_DEEPSEEK_BASE_URL, DEFAULT_DEEPSEEK_MODEL
+from graph_app.config import (
+    APP_VERSION,
+    DEFAULT_DEEPSEEK_BASE_URL,
+    DEFAULT_DEEPSEEK_MODEL,
+    DEFAULT_LANGSMITH_PROJECT,
+)
 from graph_app.tools import get_tool_schemas
 
 
@@ -243,10 +248,48 @@ def create_client():
     except ImportError as exc:
         raise RuntimeError("请先运行：pip install -r requirements.txt") from exc
 
-    return OpenAI(
+    client = OpenAI(
         api_key=os.getenv("DEEPSEEK_API_KEY"),
         base_url=os.getenv("DEEPSEEK_BASE_URL", DEFAULT_DEEPSEEK_BASE_URL),
     )
+
+    return wrap_client_for_langsmith(client)
+
+
+def wrap_client_for_langsmith(client: Any) -> Any:
+    if not langsmith_tracing_enabled():
+        return client
+
+    if not os.getenv("LANGSMITH_API_KEY"):
+        return client
+
+    try:
+        from langsmith import wrappers
+    except ImportError as exc:
+        raise RuntimeError("请先运行：pip install -r requirements.txt") from exc
+
+    os.environ.setdefault("LANGSMITH_PROJECT", DEFAULT_LANGSMITH_PROJECT)
+
+    return wrappers.wrap_openai(
+        client,
+        tracing_extra={
+            "metadata": {
+                "app": "langgraph-beginner",
+                "app_version": APP_VERSION,
+                "ls_provider": "deepseek",
+                "ls_model_name": get_model(),
+            }
+        },
+    )
+
+
+def langsmith_tracing_enabled() -> bool:
+    return os.getenv("LANGSMITH_TRACING", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 def get_model() -> str:

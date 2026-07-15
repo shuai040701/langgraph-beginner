@@ -2,6 +2,14 @@
 
 All notable learning-version changes for this project are recorded here.
 
+## v18 - LangSmith Tracing
+
+- Added optional LangSmith tracing for DeepSeek/OpenAI-compatible model calls.
+- Wrapped the OpenAI-compatible DeepSeek client with `langsmith.wrappers.wrap_openai`.
+- Added LangSmith environment variables to `.env.example`.
+- Added `/config` visibility for LangSmith tracing state.
+- Added tests for LangSmith configuration parsing.
+
 ## v17 - App Configuration Layer
 
 - Added centralized app configuration in `src/graph_app/config.py`.

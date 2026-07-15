@@ -4,7 +4,7 @@
 
 This repository is a complete beginner-level LangGraph agent project. It started as a minimal routing graph and has evolved into a CLI-based agent with DeepSeek model access, local tools, multi-step tool loops, persistent checkpoint memory, streaming output, graph inspection, tests, and CI.
 
-Current application version in code: `v17`
+Current application version in code: `v18`
 
 Latest local commit at the time this context was written:
 
@@ -17,6 +17,7 @@ The working tree was clean before this context file and the small `tools.py` tex
 ## What The Agent Can Do
 
 - Call DeepSeek through an OpenAI-compatible API.
+- Send model-call traces to LangSmith when tracing is enabled.
 - Use local tools through LangGraph tool calls.
 - Run multi-step model -> tool -> model loops.
 - Persist conversation state with SQLite checkpoints.
@@ -156,6 +157,10 @@ CHECKPOINT_DB=data/checkpoints.sqlite
 GRAPH_MERMAID_FILE=docs/langgraph.mmd
 TRACE_DEFAULT=true
 TOKEN_STREAM_DEFAULT=true
+LANGSMITH_TRACING=false
+LANGSMITH_API_KEY=your_langsmith_api_key_here
+LANGSMITH_PROJECT=langgraph-beginner
+# LANGSMITH_ENDPOINT=https://api.smith.langchain.com
 ```
 
 Runtime config is surfaced in the CLI with:
@@ -232,6 +237,7 @@ Current known passing result:
 Coverage areas:
 
 - config parsing
+- LangSmith config parsing
 - tool execution
 - tool schema registry
 - forced `text_stats` rule
@@ -264,6 +270,7 @@ on push and pull requests.
 Recent milestones:
 
 ```text
+v18 Add LangSmith tracing
 22b7760 Initial LangGraph DeepSeek agent
 3f37c02 Add checkpoint memory
 1dcb682 Persist checkpoints with SQLite
@@ -298,6 +305,7 @@ It satisfies the completion standard:
 - tests
 - CI
 - GitHub-ready structure
+- optional LangSmith tracing
 
 Further versions should be treated as productization work, not required beginner-agent fundamentals.
 

@@ -1,6 +1,7 @@
 langgraph
 langgraph-checkpoint-sqlite
 langchain-openai
+langsmith
 openai
 python-dotenv
 tzdata

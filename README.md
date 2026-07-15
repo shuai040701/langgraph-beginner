@@ -35,7 +35,34 @@ CHECKPOINT_DB=data/checkpoints.sqlite
 GRAPH_MERMAID_FILE=docs/langgraph.mmd
 TRACE_DEFAULT=true
 TOKEN_STREAM_DEFAULT=true
+LANGSMITH_TRACING=false
+LANGSMITH_API_KEY=your_langsmith_api_key_here
+LANGSMITH_PROJECT=langgraph-beginner
+# LANGSMITH_ENDPOINT=https://api.smith.langchain.com
 ```
+
+## LangSmith
+
+This project can send DeepSeek/OpenAI-compatible model traces to LangSmith.
+
+1. Create a LangSmith API key at [smith.langchain.com](https://smith.langchain.com).
+2. Put these values in `.env`:
+
+```env
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=your_langsmith_api_key_here
+LANGSMITH_PROJECT=langgraph-beginner
+```
+
+3. Run the agent:
+
+```powershell
+python main.py
+```
+
+4. Ask a question that calls the DeepSeek model. The trace will appear in the LangSmith project named `langgraph-beginner`.
+
+If your LangSmith account is outside the default US region, also set `LANGSMITH_ENDPOINT`.
 
 ## Test
 
@@ -63,6 +90,7 @@ CHANGELOG.md        Learning-version history
 This is now a complete beginner-level LangGraph agent when it can:
 
 - call a real model through the DeepSeek API
+- trace model calls to LangSmith
 - select and execute multiple local tools
 - loop through model -> tool -> model until a final answer is ready
 - persist memory through SQLite checkpoints

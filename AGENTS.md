@@ -34,6 +34,7 @@ The project already satisfies the beginner-agent goal:
 - thread switching
 - graph event streaming
 - final answer token streaming
+- LangSmith tracing for DeepSeek/OpenAI-compatible calls
 - CLI inspection commands
 - Mermaid graph export
 - pytest coverage
@@ -51,6 +52,7 @@ Future work should be treated as productization or specialization, not required 
 - Keep CLI command parsing in `main.py`.
 - Do not commit `.env`, SQLite checkpoint files, caches, or virtual environments.
 - Preserve DeepSeek `reasoning_content` handling unless the API behavior is deliberately changed and retested.
+- Keep LangSmith tracing optional. It should only upload traces when `LANGSMITH_TRACING=true` and `LANGSMITH_API_KEY` is configured.
 - When changing tool-call behavior, run the full test suite.
 
 ## Commands
@@ -95,6 +97,10 @@ CHECKPOINT_DB=data/checkpoints.sqlite
 GRAPH_MERMAID_FILE=docs/langgraph.mmd
 TRACE_DEFAULT=true
 TOKEN_STREAM_DEFAULT=true
+LANGSMITH_TRACING=false
+LANGSMITH_API_KEY=
+LANGSMITH_PROJECT=langgraph-beginner
+LANGSMITH_ENDPOINT=
 ```
 
 ## Testing Guidance

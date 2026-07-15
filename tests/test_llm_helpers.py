@@ -3,6 +3,7 @@ import os
 from graph_app.llm import (
     build_messages,
     choose_forced_tool,
+    langsmith_tracing_enabled,
     parse_message_tool_calls,
     stream_chat_completion,
 )
@@ -31,6 +32,14 @@ def test_choose_forced_tool_skips_after_text_stats_was_requested():
     )
 
     assert choose_forced_tool(user_input, messages) is None
+
+
+def test_langsmith_tracing_enabled_reads_boolean_env(monkeypatch):
+    monkeypatch.setenv("LANGSMITH_TRACING", "true")
+    assert langsmith_tracing_enabled() is True
+
+    monkeypatch.setenv("LANGSMITH_TRACING", "off")
+    assert langsmith_tracing_enabled() is False
 
 
 def test_parse_message_tool_calls_from_dicts():
