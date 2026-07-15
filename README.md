@@ -49,6 +49,15 @@ The tests do not call the DeepSeek API. They cover local tools, helper logic, st
 
 GitHub Actions runs `python -m pytest` on every push and pull request.
 
+## Project Files
+
+```text
+README.md           Human-facing project overview
+AGENTS.md           Agent-facing development guide
+PROJECT_CONTEXT.md  Current technical status and handoff summary
+CHANGELOG.md        Learning-version history
+```
+
 ## Completion Standard
 
 This is now a complete beginner-level LangGraph agent when it can:
