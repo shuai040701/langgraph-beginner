@@ -18,6 +18,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 PROJECT_ROOT = Path(__file__).parent
 CHECKPOINT_DB = PROJECT_ROOT / "data" / "checkpoints.sqlite"
+GRAPH_MERMAID_FILE = PROJECT_ROOT / "docs" / "langgraph.mmd"
 DEFAULT_THREAD_ID = "demo-thread"
 
 
@@ -33,7 +34,7 @@ def main():
         trace_enabled = True
         token_stream_enabled = True
 
-        print("LangGraph Beginner v11 - Checkpoint Inspector")
+        print("LangGraph Beginner v12 - Graph Export")
         print(f"记忆数据库：{CHECKPOINT_DB}")
         print_status()
         print_help()
@@ -52,6 +53,10 @@ def main():
 
             if user_input == "/help":
                 print_help()
+                continue
+
+            if user_input == "/graph":
+                export_graph(app)
                 continue
 
             if user_input == "/state":
@@ -102,6 +107,7 @@ def main():
 def print_help():
     print("命令：")
     print("  /help             显示命令")
+    print("  /graph            导出 Mermaid 图到 docs/langgraph.mmd")
     print("  /state            查看当前 thread 的状态摘要")
     print("  /memory           查看当前 thread 的对话记忆")
     print("  /history [n]      查看最近 n 条 checkpoint，默认 5")
@@ -110,6 +116,16 @@ def print_help():
     print("  /trace on|off     切换 LangGraph 节点事件流")
     print("  /tokens on|off    切换最终回答 token 流式输出")
     print("  exit              结束程序")
+
+
+def export_graph(app):
+    mermaid = app.get_graph().draw_mermaid()
+    GRAPH_MERMAID_FILE.parent.mkdir(exist_ok=True)
+    GRAPH_MERMAID_FILE.write_text(mermaid, encoding="utf-8")
+
+    print(f"已导出 Mermaid 图：{GRAPH_MERMAID_FILE}")
+    print("Mermaid：")
+    print(mermaid)
 
 
 def run_graph(
