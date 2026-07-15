@@ -43,7 +43,7 @@ LANGSMITH_PROJECT=langgraph-beginner
 
 ## LangSmith
 
-This project can send DeepSeek/OpenAI-compatible model traces to LangSmith.
+This project can send DeepSeek/OpenAI-compatible model traces to LangSmith. Keep it off during normal practice, then turn it on when you want to inspect model calls, tool calls, latency, or prompt changes.
 
 1. Create a LangSmith API key at [smith.langchain.com](https://smith.langchain.com).
 2. Put these values in `.env`:
@@ -63,6 +63,19 @@ python main.py
 4. Ask a question that calls the DeepSeek model. The trace will appear in the LangSmith project named `langgraph-beginner`.
 
 If your LangSmith account is outside the default US region, also set `LANGSMITH_ENDPOINT`.
+
+For daily local practice, leave tracing off:
+
+```env
+LANGSMITH_TRACING=false
+```
+
+During one running session, you can also use:
+
+```text
+/langsmith on
+/langsmith off
+```
 
 ## Test
 

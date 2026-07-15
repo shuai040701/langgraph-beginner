@@ -13,7 +13,12 @@ except ImportError:
 
 from graph_app.config import APP_TITLE, APP_VERSION, AppConfig
 from graph_app.graph import build_graph
-from graph_app.llm import STREAM_TOKENS_ENV
+from graph_app.llm import (
+    STREAM_TOKENS_ENV,
+    ensure_langsmith_project,
+    flush_langsmith_traces,
+    langsmith_tracing_enabled,
+)
 from graph_app.tools import TOOL_REGISTRY
 from langgraph.checkpoint.sqlite import SqliteSaver
 
@@ -22,6 +27,8 @@ PROJECT_ROOT = Path(__file__).parent
 
 
 def main():
+    configure_console_encoding()
+
     if load_dotenv:
         load_dotenv()
 
@@ -39,85 +46,103 @@ def main():
         print_status(app_config)
         print_help()
 
-        while True:
-            user_input = input(f"\n你[{thread_id}]：").strip()
+        try:
+            while True:
+                user_input = input(f"\n你[{thread_id}]：").strip()
 
-            if user_input.lower() in {"exit", "quit", "q"}:
-                print("再见。")
-                break
+                if user_input.lower() in {"exit", "quit", "q"}:
+                    print("再见。")
+                    break
 
-            config = {
-                "configurable": {"thread_id": thread_id},
-                "recursion_limit": app_config.recursion_limit,
-            }
+                config = {
+                    "configurable": {"thread_id": thread_id},
+                    "recursion_limit": app_config.recursion_limit,
+                }
 
-            if user_input == "/help":
-                print_help()
-                continue
+                if user_input == "/help":
+                    print_help()
+                    continue
 
-            if user_input == "/about":
-                print_about(app_config)
-                continue
+                if user_input == "/about":
+                    print_about(app_config)
+                    continue
 
-            if user_input == "/config":
-                print_config(app_config, trace_enabled, token_stream_enabled)
-                continue
+                if user_input == "/config":
+                    print_config(app_config, trace_enabled, token_stream_enabled)
+                    continue
 
-            if user_input == "/tools":
-                print_tools()
-                continue
+                if user_input == "/langsmith":
+                    check_langsmith_project()
+                    continue
 
-            if user_input.startswith("/tool "):
-                print_tool_detail(user_input.removeprefix("/tool ").strip())
-                continue
+                if user_input.startswith("/langsmith "):
+                    set_langsmith_tracing(user_input)
+                    continue
 
-            if user_input == "/graph":
-                export_graph(app, app_config)
-                continue
+                if user_input == "/tools":
+                    print_tools()
+                    continue
 
-            if user_input == "/state":
-                print_state(app, config)
-                continue
+                if user_input.startswith("/tool "):
+                    print_tool_detail(user_input.removeprefix("/tool ").strip())
+                    continue
 
-            if user_input == "/memory":
-                print_memory(app, config)
-                continue
+                if user_input == "/graph":
+                    export_graph(app, app_config)
+                    continue
 
-            if user_input.startswith("/history"):
-                print_history(app, config, user_input)
-                continue
+                if user_input == "/state":
+                    print_state(app, config)
+                    continue
 
-            if user_input == "/reset":
-                thread_id = f"demo-thread-{uuid.uuid4().hex[:8]}"
-                print(f"已切换到新会话：{thread_id}")
-                continue
+                if user_input == "/memory":
+                    print_memory(app, config)
+                    continue
 
-            if user_input.startswith("/thread "):
-                next_thread_id = user_input.removeprefix("/thread ").strip()
-                if next_thread_id:
-                    thread_id = next_thread_id
-                    print(f"已切换到会话：{thread_id}")
-                else:
-                    print("用法：/thread 你的会话名")
-                continue
+                if user_input.startswith("/history"):
+                    print_history(app, config, user_input)
+                    continue
 
-            if user_input.startswith("/trace "):
-                trace_enabled = user_input.removeprefix("/trace ").strip().lower() != "off"
-                print(f"事件流：{'开启' if trace_enabled else '关闭'}")
-                continue
+                if user_input == "/reset":
+                    thread_id = f"demo-thread-{uuid.uuid4().hex[:8]}"
+                    print(f"已切换到新会话：{thread_id}")
+                    continue
 
-            if user_input.startswith("/tokens "):
-                token_stream_enabled = user_input.removeprefix("/tokens ").strip().lower() != "off"
-                print(f"回答流式输出：{'开启' if token_stream_enabled else '关闭'}")
-                continue
+                if user_input.startswith("/thread "):
+                    next_thread_id = user_input.removeprefix("/thread ").strip()
+                    if next_thread_id:
+                        thread_id = next_thread_id
+                        print(f"已切换到会话：{thread_id}")
+                    else:
+                        print("用法：/thread 你的会话名")
+                    continue
 
-            state_input = build_state_input(app, config, user_input)
-            result = run_graph(app, state_input, config, trace_enabled, token_stream_enabled)
+                if user_input.startswith("/trace "):
+                    trace_enabled = user_input.removeprefix("/trace ").strip().lower() != "off"
+                    print(f"事件流：{'开启' if trace_enabled else '关闭'}")
+                    continue
 
-            if result.get("tool_result"):
-                print(f"工具结果：\n{result['tool_result']}")
-            if not result.get("answer_streamed"):
-                print(f"助手：{result['answer']}")
+                if user_input.startswith("/tokens "):
+                    token_stream_enabled = user_input.removeprefix("/tokens ").strip().lower() != "off"
+                    print(f"回答流式输出：{'开启' if token_stream_enabled else '关闭'}")
+                    continue
+
+                state_input = build_state_input(app, config, user_input)
+                result = run_graph(app, state_input, config, trace_enabled, token_stream_enabled)
+                flush_langsmith_safely()
+
+                if result.get("tool_result"):
+                    print(f"工具结果：\n{result['tool_result']}")
+                if not result.get("answer_streamed"):
+                    print(f"助手：{result['answer']}")
+        finally:
+            flush_langsmith_safely()
+
+
+def configure_console_encoding():
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
 
 
 def print_help():
@@ -125,6 +150,8 @@ def print_help():
     print("  /help             显示命令")
     print("  /about            查看项目能力和完成标准")
     print("  /config           查看当前配置")
+    print("  /langsmith        创建或检查 LangSmith 项目")
+    print("  /langsmith on|off 切换本次运行是否上传 LangSmith trace")
     print("  /tools            查看所有已注册工具")
     print("  /tool 名称        查看某个工具的描述和参数")
     print("  /graph            导出 Mermaid 图")
@@ -166,10 +193,35 @@ def print_config(
     print(f"  trace_enabled: {trace_enabled}")
     print(f"  token_stream_enabled: {token_stream_enabled}")
     print(f"  deepseek_api_key_configured: {bool(os.getenv('DEEPSEEK_API_KEY'))}")
-    print(f"  langsmith_tracing: {app_config.langsmith_tracing}")
+    print(f"  langsmith_tracing: {langsmith_tracing_enabled()}")
     print(f"  langsmith_project: {app_config.langsmith_project}")
     print(f"  langsmith_endpoint: {app_config.langsmith_endpoint or '(default)'}")
     print(f"  langsmith_api_key_configured: {bool(os.getenv('LANGSMITH_API_KEY'))}")
+
+
+def check_langsmith_project():
+    try:
+        project_name = ensure_langsmith_project()
+    except Exception as exc:
+        print(f"LangSmith 检查失败：{exc}")
+        return
+
+    print(f"LangSmith 项目已可用：{project_name}")
+
+
+def set_langsmith_tracing(command: str):
+    value = command.removeprefix("/langsmith ").strip().lower()
+    if value in {"on", "true", "1", "yes"}:
+        os.environ["LANGSMITH_TRACING"] = "true"
+        print("LangSmith tracing：开启（仅本次运行）")
+        return
+
+    if value in {"off", "false", "0", "no"}:
+        os.environ["LANGSMITH_TRACING"] = "false"
+        print("LangSmith tracing：关闭（仅本次运行）")
+        return
+
+    print("用法：/langsmith on 或 /langsmith off")
 
 
 def print_tools():
@@ -233,6 +285,13 @@ def run_graph(
             os.environ.pop(STREAM_TOKENS_ENV, None)
         else:
             os.environ[STREAM_TOKENS_ENV] = previous_stream_setting
+
+
+def flush_langsmith_safely():
+    try:
+        flush_langsmith_traces()
+    except Exception as exc:
+        print(f"LangSmith trace 提交失败：{exc}")
 
 
 def print_graph_update(update: dict[str, Any]):

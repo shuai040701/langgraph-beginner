@@ -13,6 +13,7 @@ from graph_app.tools import get_tool_schemas
 
 
 STREAM_TOKENS_ENV = "LANGGRAPH_STREAM_TOKENS"
+_LANGSMITH_CLIENT: Any | None = None
 
 
 def ask_with_tools(
@@ -269,10 +270,12 @@ def wrap_client_for_langsmith(client: Any) -> Any:
         raise RuntimeError("请先运行：pip install -r requirements.txt") from exc
 
     os.environ.setdefault("LANGSMITH_PROJECT", DEFAULT_LANGSMITH_PROJECT)
+    langsmith_client = get_langsmith_client()
 
     return wrappers.wrap_openai(
         client,
         tracing_extra={
+            "client": langsmith_client,
             "metadata": {
                 "app": "langgraph-beginner",
                 "app_version": APP_VERSION,
@@ -290,6 +293,46 @@ def langsmith_tracing_enabled() -> bool:
         "yes",
         "on",
     }
+
+
+def get_langsmith_client() -> Any:
+    global _LANGSMITH_CLIENT
+
+    if _LANGSMITH_CLIENT is None:
+        try:
+            from langsmith import Client
+        except ImportError as exc:
+            raise RuntimeError("请先运行：pip install -r requirements.txt") from exc
+
+        _LANGSMITH_CLIENT = Client()
+
+    return _LANGSMITH_CLIENT
+
+
+def flush_langsmith_traces(timeout: float = 10.0) -> None:
+    if _LANGSMITH_CLIENT is None:
+        return
+
+    _LANGSMITH_CLIENT.flush(timeout=timeout)
+
+
+def ensure_langsmith_project() -> str:
+    if not os.getenv("LANGSMITH_API_KEY"):
+        raise RuntimeError("缺少 LANGSMITH_API_KEY。")
+
+    project_name = os.getenv("LANGSMITH_PROJECT") or DEFAULT_LANGSMITH_PROJECT
+    os.environ.setdefault("LANGSMITH_PROJECT", project_name)
+    client = get_langsmith_client()
+    project = client.create_project(
+        project_name=project_name,
+        description="LangGraph beginner agent traces",
+        upsert=True,
+        metadata={
+            "app": "langgraph-beginner",
+            "app_version": APP_VERSION,
+        },
+    )
+    return getattr(project, "name", project_name)
 
 
 def get_model() -> str:
