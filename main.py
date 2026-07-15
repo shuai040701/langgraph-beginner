@@ -11,6 +11,7 @@ try:
 except ImportError:
     load_dotenv = None
 
+from graph_app.config import APP_TITLE, APP_VERSION, AppConfig
 from graph_app.graph import build_graph
 from graph_app.llm import STREAM_TOKENS_ENV
 from graph_app.tools import TOOL_REGISTRY
@@ -18,26 +19,24 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 
 PROJECT_ROOT = Path(__file__).parent
-CHECKPOINT_DB = PROJECT_ROOT / "data" / "checkpoints.sqlite"
-GRAPH_MERMAID_FILE = PROJECT_ROOT / "docs" / "langgraph.mmd"
-DEFAULT_THREAD_ID = "demo-thread"
 
 
 def main():
     if load_dotenv:
         load_dotenv()
 
-    CHECKPOINT_DB.parent.mkdir(exist_ok=True)
+    app_config = AppConfig.from_env(PROJECT_ROOT)
+    app_config.checkpoint_db.parent.mkdir(exist_ok=True)
 
-    with SqliteSaver.from_conn_string(str(CHECKPOINT_DB)) as checkpointer:
+    with SqliteSaver.from_conn_string(str(app_config.checkpoint_db)) as checkpointer:
         app = build_graph(checkpointer=checkpointer)
-        thread_id = DEFAULT_THREAD_ID
-        trace_enabled = True
-        token_stream_enabled = True
+        thread_id = app_config.default_thread_id
+        trace_enabled = app_config.trace_default
+        token_stream_enabled = app_config.token_stream_default
 
-        print("LangGraph Beginner v16 - Tool Catalog")
-        print(f"记忆数据库：{CHECKPOINT_DB}")
-        print_status()
+        print(f"{APP_TITLE} {APP_VERSION} - Configured Agent")
+        print(f"记忆数据库：{app_config.checkpoint_db}")
+        print_status(app_config)
         print_help()
 
         while True:
@@ -49,11 +48,19 @@ def main():
 
             config = {
                 "configurable": {"thread_id": thread_id},
-                "recursion_limit": 12,
+                "recursion_limit": app_config.recursion_limit,
             }
 
             if user_input == "/help":
                 print_help()
+                continue
+
+            if user_input == "/about":
+                print_about(app_config)
+                continue
+
+            if user_input == "/config":
+                print_config(app_config, trace_enabled, token_stream_enabled)
                 continue
 
             if user_input == "/tools":
@@ -65,7 +72,7 @@ def main():
                 continue
 
             if user_input == "/graph":
-                export_graph(app)
+                export_graph(app, app_config)
                 continue
 
             if user_input == "/state":
@@ -116,9 +123,11 @@ def main():
 def print_help():
     print("命令：")
     print("  /help             显示命令")
+    print("  /about            查看项目能力和完成标准")
+    print("  /config           查看当前配置")
     print("  /tools            查看所有已注册工具")
     print("  /tool 名称        查看某个工具的描述和参数")
-    print("  /graph            导出 Mermaid 图到 docs/langgraph.mmd")
+    print("  /graph            导出 Mermaid 图")
     print("  /state            查看当前 thread 的状态摘要")
     print("  /memory           查看当前 thread 的对话记忆")
     print("  /history [n]      查看最近 n 条 checkpoint，默认 5")
@@ -127,6 +136,36 @@ def print_help():
     print("  /trace on|off     切换 LangGraph 节点事件流")
     print("  /tokens on|off    切换最终回答 token 流式输出")
     print("  exit              结束程序")
+
+
+def print_about(app_config: AppConfig):
+    print(f"{APP_TITLE} {APP_VERSION}")
+    print("这是一个完整的入门级 LangGraph agent：")
+    print("  - DeepSeek OpenAI-compatible API")
+    print("  - 多工具调用和多步工具循环")
+    print("  - SQLite checkpoint 持久化记忆")
+    print("  - token streaming 和图事件 streaming")
+    print("  - checkpoint inspector、工具目录、Mermaid 图导出")
+    print("  - pytest 测试和 GitHub Actions CI")
+    print("完成标准：能稳定对话、会用工具、能持久记忆、可观察、可测试、可推送 CI。")
+    print(f"当前模型：{app_config.deepseek_model}")
+
+
+def print_config(
+    app_config: AppConfig,
+    trace_enabled: bool,
+    token_stream_enabled: bool,
+):
+    print("当前配置：")
+    print(f"  checkpoint_db: {app_config.checkpoint_db}")
+    print(f"  graph_mermaid_file: {app_config.graph_mermaid_file}")
+    print(f"  default_thread_id: {app_config.default_thread_id}")
+    print(f"  recursion_limit: {app_config.recursion_limit}")
+    print(f"  deepseek_base_url: {app_config.deepseek_base_url}")
+    print(f"  deepseek_model: {app_config.deepseek_model}")
+    print(f"  trace_enabled: {trace_enabled}")
+    print(f"  token_stream_enabled: {token_stream_enabled}")
+    print(f"  deepseek_api_key_configured: {bool(os.getenv('DEEPSEEK_API_KEY'))}")
 
 
 def print_tools():
@@ -155,12 +194,12 @@ def print_tool_detail(name: str):
         print(f"  {param_name} ({param_type}, {marker}): {description}")
 
 
-def export_graph(app):
+def export_graph(app, app_config: AppConfig):
     mermaid = app.get_graph().draw_mermaid()
-    GRAPH_MERMAID_FILE.parent.mkdir(exist_ok=True)
-    GRAPH_MERMAID_FILE.write_text(mermaid, encoding="utf-8")
+    app_config.graph_mermaid_file.parent.mkdir(exist_ok=True)
+    app_config.graph_mermaid_file.write_text(mermaid, encoding="utf-8")
 
-    print(f"已导出 Mermaid 图：{GRAPH_MERMAID_FILE}")
+    print(f"已导出 Mermaid 图：{app_config.graph_mermaid_file}")
     print("Mermaid：")
     print(mermaid)
 
@@ -224,10 +263,9 @@ def print_tool_update(payload: dict[str, Any]):
     print(f"  tool_node -> 已执行工具：{tool_name}")
 
 
-def print_status():
+def print_status(app_config: AppConfig):
     if os.getenv("DEEPSEEK_API_KEY"):
-        model = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
-        print(f"已检测到 DEEPSEEK_API_KEY，将使用 DeepSeek 模型：{model}")
+        print(f"已检测到 DEEPSEEK_API_KEY，将使用 DeepSeek 模型：{app_config.deepseek_model}")
     else:
         print("未检测到 DEEPSEEK_API_KEY，将使用本地回退回复。")
 

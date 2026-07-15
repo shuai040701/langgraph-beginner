@@ -3,7 +3,16 @@ import tempfile
 
 from graph_app.graph import build_graph
 from langgraph.checkpoint.sqlite import SqliteSaver
-from main import build_state_input, parse_history_limit, print_tool_detail, print_tools, run_graph
+from graph_app.config import AppConfig
+from main import (
+    build_state_input,
+    parse_history_limit,
+    print_about,
+    print_config,
+    print_tool_detail,
+    print_tools,
+    run_graph,
+)
 
 
 BASE_STATE = {
@@ -41,6 +50,17 @@ def test_print_tool_detail_shows_parameters(capsys):
     output = capsys.readouterr().out
     assert "calculator" in output
     assert "expression" in output
+
+
+def test_print_about_and_config(capsys, tmp_path):
+    config = AppConfig.from_env(tmp_path)
+
+    print_about(config)
+    print_config(config, True, False)
+
+    output = capsys.readouterr().out
+    assert "完整的入门级 LangGraph agent" in output
+    assert "recursion_limit" in output
 
 
 def test_graph_local_fallback_persists_checkpoint(monkeypatch):

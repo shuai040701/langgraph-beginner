@@ -3,11 +3,10 @@ import os
 import re
 from typing import Any
 
+from graph_app.config import DEFAULT_DEEPSEEK_BASE_URL, DEFAULT_DEEPSEEK_MODEL
 from graph_app.tools import get_tool_schemas
 
 
-DEFAULT_DEEPSEEK_BASE_URL = "https://api.deepseek.com"
-DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash"
 STREAM_TOKENS_ENV = "LANGGRAPH_STREAM_TOKENS"
 
 
