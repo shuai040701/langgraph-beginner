@@ -1,4 +1,4 @@
-from graph_app.tools import run_tool, safe_calculate, text_stats
+from graph_app.tools import TOOL_REGISTRY, get_tool_schemas, run_tool, safe_calculate, text_stats
 
 
 def test_safe_calculate_supports_basic_arithmetic():
@@ -26,3 +26,9 @@ def test_text_stats_counts_text_shape():
 def test_run_tool_dispatches_tools():
     assert run_tool("calculator", {"expression": "2 ** 5"}) == "32"
     assert "Asia/Shanghai" in run_tool("current_time", {"timezone": "Asia/Shanghai"})
+
+
+def test_tool_schemas_are_derived_from_registry():
+    schema_names = {schema["function"]["name"] for schema in get_tool_schemas()}
+
+    assert schema_names == set(TOOL_REGISTRY)

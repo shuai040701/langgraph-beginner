@@ -3,64 +3,12 @@ import os
 import re
 from typing import Any
 
+from graph_app.tools import get_tool_schemas
+
 
 DEFAULT_DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash"
 STREAM_TOKENS_ENV = "LANGGRAPH_STREAM_TOKENS"
-
-TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "calculator",
-            "description": "计算只包含数字、括号和 + - * / // % ** 运算符的数学表达式。",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "expression": {
-                        "type": "string",
-                        "description": "需要计算的数学表达式，例如：1 + 2 * (3 + 4)",
-                    }
-                },
-                "required": ["expression"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "text_stats",
-            "description": "统计文本的字符数、非空白字符数、按空白分隔的词数和行数。",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "text": {
-                        "type": "string",
-                        "description": "需要统计的文本。",
-                    }
-                },
-                "required": ["text"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "current_time",
-            "description": "获取指定 IANA 时区的当前时间。",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "timezone": {
-                        "type": "string",
-                        "description": "IANA 时区名，例如 Asia/Shanghai 或 America/New_York。",
-                    }
-                },
-                "required": ["timezone"],
-            },
-        },
-    },
-]
 
 
 def ask_with_tools(
@@ -87,7 +35,7 @@ def ask_with_tools(
             response = client.chat.completions.create(
                 model=get_model(),
                 messages=current_messages,
-                tools=TOOLS,
+                tools=get_tool_schemas(),
                 tool_choice="auto",
                 stream=False,
             )
@@ -133,7 +81,7 @@ def stream_chat_completion(client: Any, messages: list[dict[str, Any]]) -> dict[
     stream = client.chat.completions.create(
         model=get_model(),
         messages=messages,
-        tools=TOOLS,
+        tools=get_tool_schemas(),
         tool_choice="auto",
         stream=True,
     )
