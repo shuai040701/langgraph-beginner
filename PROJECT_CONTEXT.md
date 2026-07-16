@@ -4,7 +4,7 @@
 
 This repository is a complete beginner-level LangGraph agent project. It started as a minimal routing graph and has evolved into a CLI-based agent with DeepSeek model access, local tools, multi-step tool loops, persistent checkpoint memory, streaming output, graph inspection, tests, and CI.
 
-Current application version in code: `v18`
+Current application version in code: `v23`
 
 Latest local commit at the time this context was written:
 
@@ -18,6 +18,12 @@ The working tree was clean before this context file and the small `tools.py` tex
 
 - Call DeepSeek through an OpenAI-compatible API.
 - Send model-call traces to LangSmith when tracing is enabled.
+- Act as a sales-frontdesk agent for local service business leads.
+- Score leads, draft replies, save lead records, and create follow-up plans.
+- Generate sales reports and high-intent lead lists from the local lead ledger.
+- Batch import leads from CSV, JSONL, and JSON files.
+- Optionally sync lead records to Feishu Bitable.
+- Verify Feishu config and write a test Bitable record from the CLI.
 - Use local tools through LangGraph tool calls.
 - Run multi-step model -> tool -> model loops.
 - Persist conversation state with SQLite checkpoints.
@@ -139,6 +145,62 @@ current_time
 
 Returns the current time for an IANA timezone.
 
+```text
+qualify_lead
+```
+
+Scores a sales lead and classifies it as A/B/C intent.
+
+```text
+record_lead
+```
+
+Writes a lead record to `data/leads.jsonl`, or to `LEADS_DB` if configured.
+
+```text
+draft_sales_reply
+```
+
+Drafts a customer-facing reply based on lead grade and missing fields.
+
+```text
+create_followup_plan
+```
+
+Creates a sales follow-up cadence for the lead owner.
+
+```text
+generate_sales_report
+```
+
+Reads the lead ledger and produces a boss-readable sales report.
+
+```text
+list_hot_leads
+```
+
+Lists recent A-grade high-intent leads for priority follow-up.
+
+```text
+import_leads
+```
+
+Imports leads from CSV, JSONL, or JSON files, maps common field aliases, scores missing grades, records the leads locally, and syncs Feishu when enabled.
+
+```text
+sync_lead_to_feishu
+```
+
+Creates one Feishu Bitable record for a lead when Feishu app credentials and table identifiers are configured.
+
+Required Feishu app permission: `bitable:app` or `base:record:create`.
+
+```text
+test_feishu_sync
+```
+
+Writes one Feishu test lead for sync verification.
+
 The model-facing tool schemas are generated from the same registry via `get_tool_schemas()`, so runtime execution and LLM schema stay in sync.
 
 ## Configuration
@@ -161,6 +223,12 @@ LANGSMITH_TRACING=false
 LANGSMITH_API_KEY=your_langsmith_api_key_here
 LANGSMITH_PROJECT=langgraph-beginner
 # LANGSMITH_ENDPOINT=https://api.smith.langchain.com
+LEADS_DB=data/leads.jsonl
+FEISHU_SYNC_ENABLED=false
+FEISHU_APP_ID=cli_xxx
+FEISHU_APP_SECRET=your_feishu_app_secret
+FEISHU_BITABLE_APP_TOKEN=your_bitable_app_token
+FEISHU_BITABLE_TABLE_ID=your_table_id
 ```
 
 Runtime config is surfaced in the CLI with:
@@ -175,6 +243,12 @@ Runtime config is surfaced in the CLI with:
 /help             Show commands
 /about            Show project capabilities and completion standard
 /config           Show active configuration
+/feishu           Show masked Feishu config status
+/feishu tables    Show available Feishu table IDs
+/feishu fields    Show configured Feishu table fields
+/feishu payload   Preview Feishu test payload
+/feishu test      Write one Feishu test lead
+/import path      Batch import CSV/JSONL/JSON leads
 /tools            List registered tools
 /tool name        Show one tool's description and parameters
 /graph            Export Mermaid graph
@@ -270,6 +344,11 @@ on push and pull requests.
 Recent milestones:
 
 ```text
+v23 Add lead import pipeline
+v22 Add Feishu sync verification
+v21 Add Feishu Bitable sync
+v20 Add sales report tools
+v19 Add sales frontdesk agent tools
 v18 Add LangSmith tracing
 22b7760 Initial LangGraph DeepSeek agent
 3f37c02 Add checkpoint memory
@@ -306,6 +385,8 @@ It satisfies the completion standard:
 - CI
 - GitHub-ready structure
 - optional LangSmith tracing
+- first marketable sales-frontdesk workflow
+- sales report and high-intent lead summary tools
 
 Further versions should be treated as productization work, not required beginner-agent fundamentals.
 

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-APP_VERSION = "v18"
+APP_VERSION = "v23"
 APP_TITLE = "LangGraph Beginner"
 DEFAULT_DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash"

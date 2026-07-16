@@ -2,6 +2,48 @@
 
 All notable learning-version changes for this project are recorded here.
 
+## v23 - Lead Import Pipeline
+
+- Added `/import 路径` CLI command for batch lead intake.
+- Added `import_leads` tool for CSV, JSONL, and JSON lead imports.
+- Added field alias mapping for common form/export column names.
+- Imported leads are automatically scored, recorded locally, and synced to Feishu when enabled.
+- Added `examples/sample_leads.csv` for quick local testing.
+- Added tests for CSV and JSONL lead import.
+
+## v22 - Feishu Sync Verification
+
+- Added `/feishu` CLI command for masked Feishu config inspection.
+- Added `/feishu tables`, `/feishu fields`, and `/feishu payload` diagnostics for Bitable schema/payload debugging.
+- Added `/feishu test` CLI command to write one test lead into Feishu Bitable.
+- Added `test_feishu_sync` tool for model-driven sync verification.
+- Documented required Feishu Bitable write permissions: `bitable:app` or `base:record:create`.
+- Added clearer diagnostics for `WrongTableId`, view IDs (`vew...`), and `WrongRequestBody`.
+- Added tests for Feishu config masking and test-record sync.
+
+## v21 - Feishu Bitable Sync
+
+- Added optional Feishu Bitable lead sync.
+- Added `sync_lead_to_feishu` tool.
+- `record_lead` now keeps the local JSONL ledger and can also sync to Feishu when `FEISHU_SYNC_ENABLED=true`.
+- Added Feishu environment variables and default Bitable field mapping.
+- Added tests for Feishu field mapping, missing config, and mocked record creation.
+
+## v20 - Sales Report Tools
+
+- Added `generate_sales_report` for boss-readable lead summaries.
+- Added `list_hot_leads` for recent A-grade lead follow-up.
+- Updated the sales-frontdesk prompt to use report tools for daily summaries and lead dashboards.
+- Added tests for lead reports and hot-lead listing.
+
+## v19 - Sales Frontdesk Agent MVP
+
+- Started the marketable AI sales-frontdesk direction for local service businesses.
+- Added lead qualification, lead recording, sales reply drafting, and follow-up planning tools.
+- Added local `data/leads.jsonl` lead storage with `LEADS_DB` override for tests/custom runs.
+- Updated the system prompt to prioritize sales-frontdesk workflows.
+- Added tests for sales tools.
+
 ## v18 - LangSmith Tracing
 
 - Added optional LangSmith tracing for DeepSeek/OpenAI-compatible model calls.

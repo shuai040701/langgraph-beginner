@@ -4,7 +4,7 @@ This file is for Codex or any future coding agent working on this repository.
 
 ## Project Shape
 
-This is a beginner-level LangGraph agent project. It is intentionally small, readable, and incremental. Prefer clear learning value over heavy abstractions.
+This is a beginner-level LangGraph agent project that is now evolving toward a marketable AI sales-frontdesk agent. It is intentionally small, readable, and incremental. Prefer clear learning value and sellable workflows over heavy abstractions.
 
 Core runtime:
 
@@ -42,11 +42,32 @@ The project already satisfies the beginner-agent goal:
 
 Future work should be treated as productization or specialization, not required beginner fundamentals.
 
+## Product Direction
+
+The current commercial direction is an AI sales frontdesk for local service businesses.
+
+Core workflow:
+
+```text
+customer inquiry/import -> qualify lead -> draft reply -> record lead -> sync Feishu -> create follow-up plan -> sales report
+```
+
+Start with high-ticket industries such as dental, medical beauty, renovation, study abroad, immigration, legal consulting, B2B services, and SaaS.
+
 ## Editing Rules
 
 - Keep changes small and beginner-readable.
 - Follow the existing module boundaries.
 - Add new tools in `src/graph_app/tools.py` through `TOOL_REGISTRY`.
+- Keep sales-frontdesk tools deterministic enough to test locally.
+- `record_lead` writes to `data/leads.jsonl` by default; use `LEADS_DB` in tests or custom runs.
+- `import_leads` supports CSV, JSONL, and JSON lead intake with common field aliases.
+- Feishu sync is optional and controlled by `FEISHU_SYNC_ENABLED`.
+- `sync_lead_to_feishu` uses tenant access token auth and Bitable record creation through Feishu Open API.
+- Feishu Bitable writes require `bitable:app` or `base:record:create` app permission.
+- Users can run `powershell -ExecutionPolicy Bypass -File .\scripts\setup_feishu_env.ps1` to configure Feishu values in `.env`.
+- Users can run `/feishu` and `/feishu test` from the CLI to validate Feishu sync.
+- `generate_sales_report` and `list_hot_leads` read from the same JSONL lead ledger.
 - Keep model/API behavior in `src/graph_app/llm.py`.
 - Keep graph topology in `src/graph_app/graph.py`.
 - Keep CLI command parsing in `main.py`.
@@ -121,7 +142,10 @@ Reasonable next directions:
 - FastAPI wrapper
 - web chat UI
 - LangSmith tracing
-- RAG over local documents
+- Feishu base / CRM lead sync
+- lead import from ad/form exports
+- sales daily report
+- RAG over service catalogs and price sheets
 - Docker packaging
 - domain-specific tools
 

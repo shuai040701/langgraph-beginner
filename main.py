@@ -19,7 +19,8 @@ from graph_app.llm import (
     flush_langsmith_traces,
     langsmith_tracing_enabled,
 )
-from graph_app.tools import TOOL_REGISTRY
+from graph_app.tools import TOOL_REGISTRY, create_feishu_test_lead, feishu_config_status, import_leads
+from graph_app.tools import feishu_test_payload_preview, inspect_feishu_fields, list_feishu_tables
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 
@@ -71,6 +72,26 @@ def main():
                     print_config(app_config, trace_enabled, token_stream_enabled)
                     continue
 
+                if user_input == "/feishu":
+                    print_feishu_status()
+                    continue
+
+                if user_input == "/feishu fields":
+                    print_feishu_fields()
+                    continue
+
+                if user_input == "/feishu tables":
+                    print_feishu_tables()
+                    continue
+
+                if user_input == "/feishu payload":
+                    print_feishu_payload()
+                    continue
+
+                if user_input == "/feishu test":
+                    test_feishu_sync()
+                    continue
+
                 if user_input == "/langsmith":
                     check_langsmith_project()
                     continue
@@ -81,6 +102,10 @@ def main():
 
                 if user_input == "/tools":
                     print_tools()
+                    continue
+
+                if user_input.startswith("/import "):
+                    import_leads_from_file(user_input)
                     continue
 
                 if user_input.startswith("/tool "):
@@ -150,9 +175,15 @@ def print_help():
     print("  /help             显示命令")
     print("  /about            查看项目能力和完成标准")
     print("  /config           查看当前配置")
+    print("  /feishu           查看飞书多维表格配置状态")
+    print("  /feishu tables    读取飞书多维表格表列表")
+    print("  /feishu fields    读取飞书多维表格字段结构")
+    print("  /feishu payload   查看将写入飞书的测试请求体")
+    print("  /feishu test      向飞书多维表格写入一条测试线索")
     print("  /langsmith        创建或检查 LangSmith 项目")
     print("  /langsmith on|off 切换本次运行是否上传 LangSmith trace")
     print("  /tools            查看所有已注册工具")
+    print("  /import 路径      批量导入 CSV/JSONL/JSON 线索")
     print("  /tool 名称        查看某个工具的描述和参数")
     print("  /graph            导出 Mermaid 图")
     print("  /state            查看当前 thread 的状态摘要")
@@ -197,6 +228,40 @@ def print_config(
     print(f"  langsmith_project: {app_config.langsmith_project}")
     print(f"  langsmith_endpoint: {app_config.langsmith_endpoint or '(default)'}")
     print(f"  langsmith_api_key_configured: {bool(os.getenv('LANGSMITH_API_KEY'))}")
+    print(f"  feishu_sync_enabled: {os.getenv('FEISHU_SYNC_ENABLED', '').lower() in {'1', 'true', 'yes', 'on'}}")
+    print(f"  feishu_app_id_configured: {bool(os.getenv('FEISHU_APP_ID'))}")
+    print(f"  feishu_bitable_configured: {bool(os.getenv('FEISHU_BITABLE_APP_TOKEN') and os.getenv('FEISHU_BITABLE_TABLE_ID'))}")
+
+
+def print_feishu_status():
+    print(feishu_config_status())
+
+
+def print_feishu_fields():
+    print("正在读取飞书字段结构...")
+    print(inspect_feishu_fields())
+
+
+def print_feishu_tables():
+    print("正在读取飞书表列表...")
+    print(list_feishu_tables())
+
+
+def print_feishu_payload():
+    print("飞书测试请求体：")
+    print(feishu_test_payload_preview())
+
+
+def test_feishu_sync():
+    print("正在写入飞书测试线索...")
+    result = create_feishu_test_lead()
+    print(f"飞书测试结果：{result}")
+
+
+def import_leads_from_file(user_input: str):
+    file_path = user_input.removeprefix("/import ").strip()
+    result = import_leads(file_path=file_path)
+    print(result)
 
 
 def check_langsmith_project():
